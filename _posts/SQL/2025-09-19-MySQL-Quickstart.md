@@ -6,6 +6,8 @@ tags: [mysql]
 excerpt: "A concise guide to MySQL covering data types, database and table management, data manipulation, advanced querying, transactions, indexes, and JDBC operations."
 ---
 
+This guide provides a quick overview of MySQL, including its data types, database and table management, data manipulation, advanced querying techniques, transactions, indexes, and JDBC operations.
+
 ## What is MySQL?
 
 MySQL is an open-source relational database management system (RDBMS) that uses Structured Query Language (SQL) for managing and manipulating databases. It is widely used for web applications and data storage due to its reliability, performance, and ease of use.
