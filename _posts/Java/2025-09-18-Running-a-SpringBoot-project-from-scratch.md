@@ -375,9 +375,268 @@ Pitfalls:
 | Overusing @Data          | Broken equals/hashCode      | Explicit methods or limited Lombok |
 | Business logic in entity | Transaction leaks           | Keep in service layer              |
 
-DTO Reminder:
+> **DTO Reminder**:  
 > Use DTOs to: hide internal columns, aggregate data, prevent lazy loading issues, version APIs cleanly.
+{: .prompt-tip}
 
-速记：Schema first → DDL verified → Entity lean → IDs deliberate → Annotations consistent → Access via service.
+#### 1.8 JPA Repository Interface
+
+在定义完数据库表(DDL)和实体类(Entity)后，下一步是创建数据访问层的 JPA Repository 接口。利用 Spring Data JPA，我们可以通过定义接口来自动生成常用的 CRUD 操作，为服务层提供数据访问功能。
+
+1. 创建 Repository 接口
+
+`src/main/java/com/example/school/student_service/dao/StudentRepository.java`{: .filepath}
+```java
+package com.example.school.student_service.dao;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+public interface StudentRepository extends JpaRepository<Student, Long>, JpaSpecificationExecutor<Student> {
+
+    // 精确匹配单个（ email ）
+    Optional<Student> findStudentByEmail(String email);
+
+    // 区间查询：Between 包含端点
+    List<Student> findStudentsByAgeBetween(Integer ageAfter, Integer ageBefore);
+
+    // 布尔字段快速派生：Active = true
+    List<Student> findStudentsByActiveTrue();
+
+    // 前缀匹配（LIKE 'xxx%'）
+    List<Student> findStudentsByFirstNameStartingWith(String firstName);
+
+    // 说明：方法名中的 Student / Students 语义不影响解析，但建议：
+    // - 单对象返回类型用单数（findStudentByEmail）
+    // - 集合返回类型用复数（findStudentsBy...）提升可读性
+    // ...
+}
+```
+1. 什么是 `@Repository` 注解？  
+   标记数据访问组件，加入 Spring 容器，并启用 Spring 统一数据访问异常转换(DataAccessException)。对纯 Spring Data 接口不是硬性必须（框架仍会创建代理），但添加后语义清晰且便于统一风格。  
+
+2. 为什么 `StudentRepository` 要继承这些接口？  
+   - `JpaRepository<Student, Long>`: 提供 CRUD、分页、排序等通用能力。  
+   - `JpaSpecificationExecutor<Student>`: 支持基于 Specification 的动态条件组合（复杂筛选、高级搜索）。 
+
+3. 为什么使用接口？  
+   Spring Data 在运行时基于接口创建动态代理实现类：  
+   - 你只需要定义“想要什么”，框架负责“怎么做”  
+   - 便于 AOP（事务、审计、统计）织入  
+   - 减少模板样板代码（不用写实现类 + EntityManager 操作）  
+
+4. 接口内的方法为什么可以这样定义？  
+   依赖“方法名解析（Query Method Derivation）”机制：  
+   - 语法片段：`find + (可选限定) + By + 条件(字段 + 运算符) + (And/Or ...)`  
+   - 示例：`findStudentsByFirstNameStartingWith` → JPQL: `where firstName like ?||'%'`  
+   - 支持关键词：`Between` / `Like` / `In` / `True` / `False` / `IsNull` / `GreaterThan` / `OrderBy...`  
+   - 返回值可为实体、Optional、集合、Slice、Page 等  
+   - 复杂场景可切换：`@Query` / `Specification` / `QueryDSL` / 原生 SQL(`@Query(nativeQuery=true)`)  
+
+补充：  
+- 单 vs 复数命名不影响功能，但保持语义统一便于维护。  
+- 若方法名过长（>3 条件组合）建议改用 `Specification` 或 `@Query`。  
+- `@Repository` 也能帮助某些 IDE/扫描器分类显示。  
 
 ### 2. Service Layer: Business Logic
+
+下一步是实现 Service Layer（业务逻辑层），它负责协调数据访问、执行业务规则，并为 Controller 层提供接口。Service Layer 应包含一个 `StudentService` 类，定义 CRUD 操作的方法，并注入 `StudentRepository`。
+
+#### 2.1 Service Layer Overview
+
+Service Layer (业务逻辑层) 负责：
+- 协调数据访问（调用 Repository）
+- 执行业务规则（验证、转换、计算）
+- 提供给 Controller 层调用的接口
+- 保持与 Web 层解耦（不处理 HTTP 细节）
+
+流程：Controller 调用 Service 方法 -> Service 调用 Repository -> 返回结果给 Controller。
+
+#### 2.2 Service Class Implementation
+
+1. 定义 StudentService 接口
+   filepath: `src/main/java/com/example/school/student_service/service/StudentService.java`{: .filepath}
+    ```java
+    package com.example.school.student_service.service;
+
+    import com.example.school.student_service.model.Student;
+
+    import java.util.List;
+    import java.util.Optional;
+
+    public interface StudentService {
+        Student saveStudent(Student student);
+        List<Student> getAllStudents();
+        Optional<Student> getStudentById(Long id);
+        Student updateStudent(Long id, Student student);
+        void deleteStudent(Long id);
+        List<Student> getActiveStudents();
+    }
+    ```
+
+1. 实现 StudentService 接口
+   
+   filepath: `src/main/java/com/example/school/student_service/service/StudentServiceImpl.java`{: .filepath}
+   ```java
+   package com.example.school.student_service.service;
+   import com.example.school.student_service.dao.Student;
+   import com.example.school.student_service.dao.StudentRepository;
+   import org.springframework.beans.BeanUtils;
+   import org.springframework.beans.factory.annotation.Autowired;
+   import org.springframework.stereotype.Service;
+   import org.springframework.transaction.annotation.Transactional;
+
+   import java.util.List;
+   import java.util.Optional;
+
+   @Service
+   @Transactional
+   public class StudentServiceImpl implements StudentService {
+       @Autowired
+       private StudentRepository studentRepository;
+
+       @Override
+       public Student saveStudent(Student student) {
+           if (studentRepository.findStudentByEmail(student.getEmail()).isPresent()) {
+               throw new IllegalArgumentException("Email already exists" + student.getEmail());
+           }
+           return studentRepository.save(student);
+       }
+
+       @Override
+       public List<Student> getAllStudents() {
+           return studentRepository.findAll();
+       }
+
+       @Override
+       public Optional<Student> getStudentById(Long id) {
+           return studentRepository.findStudentById(id);
+       }
+
+       @Override
+       public Student updateStudent(Long id, Student updatedStudent) {
+           return studentRepository.findStudentById(id).map(student -> {
+               BeanUtils.copyProperties(updatedStudent, student);
+               return studentRepository.save(student); // persist changes
+           }).orElseThrow(() -> new IllegalArgumentException("Student not found with id: " + id));
+       }
+
+       @Override
+       public void deleteStudent(Long id) {
+           studentRepository.deleteStudentById(id);
+       }
+
+       @Override
+       public List<Student> getActiveStudents() {
+           return studentRepository.getStudentsByActiveTrue();
+       }
+   }
+   ```
+
+   #### Annotation Explanations
+   - **@Service Annotation**: Marks the class as a service component in Spring's component scanning. It registers the class as a Bean in the application context, enabling dependency injection and indicating it handles business logic.
+   - **@Transactional Annotation**: Enables declarative transaction management for the class. It ensures that database operations within methods are executed atomically, with automatic commit or rollback on success/failure, maintaining data consistency.
+   - **@Autowired Annotation**: Performs automatic dependency injection by Spring. It injects a matching Bean (e.g., `StudentRepository`) into the annotated field, simplifying dependency management and promoting loose coupling.
+
+   ### 3. Controller Layer: Exposing the API
+
+   #### 3.1 Controller Layer Overview
+
+    Controller Layer (控制器层) 负责：
+    - 处理 HTTP 请求/响应
+    - 调用 Service 层方法
+    - 映射 URL 路径和 HTTP 方法
+    - 返回 JSON/XML 等格式的数据
+    - 处理请求参数和响应结果的转换
+
+    流程：客户端请求 -> DispatcherServlet -> Controller 方法 -> 调用 Service -> 返回结果 -> 响应客户端。
+
+   #### 3.2 Controller Class Implementation
+   
+   1. 定义 StudentController 类
+   filepath: `src/main/java/com/example/school/student_service/controller/StudentController.java`{: .filepath}
+
+    ```java
+    package com.example.school.student_service.controller;
+
+    import com.example.school.student_service.dao.Student;
+    import com.example.school.student_service.service.StudentService;
+    import org.springframework.beans.factory.annotation.Autowired;
+    import org.springframework.http.HttpStatus;
+    import org.springframework.http.ResponseEntity;
+    import org.springframework.web.bind.annotation.*;
+
+    import java.util.List;
+    import java.util.Optional;
+
+    @RestController
+    @RequestMapping("api/students")
+    public class StudentController {
+        @Autowired
+        StudentService studentService;
+
+        // CREATE: POST /api/students
+        @PostMapping
+        public ResponseEntity<Student> createStudent(@RequestBody Student student) {
+            try {
+                Student savedStudent = studentService.saveStudent(student);
+                return ResponseEntity.status(HttpStatus.CREATED).body(savedStudent);
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            }
+        }
+
+        // READ ALL: GET /api/students
+        @GetMapping
+        public ResponseEntity<List<Student>> getAllStudents() {
+            List<Student> students = studentService.getAllStudents();
+            return ResponseEntity.ok(students);
+        }
+
+        // READ BY ID: GET /api/students/{id}
+        @GetMapping("/{id}")
+        public ResponseEntity<Student> getStudentById(@PathVariable Long id) {
+            Optional<Student> student = studentService.getStudentById(id);
+            return student.map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+        }
+
+        // UPDATE: PUT /api/students/{id}
+        @PutMapping("/{id}")
+        public ResponseEntity<Student> updateStudent(@PathVariable Long id, @PathVariable Student student) {
+            try {
+                Student updatedStudent = studentService.updateStudent(id, student);
+                return ResponseEntity.ok(updatedStudent);
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.notFound().build();
+            }
+        }
+
+        @DeleteMapping("/{id}")
+        public ResponseEntity<Student> deleteStudent(@PathVariable Long id) {
+            try {
+                studentService.deleteStudent(id);
+                return ResponseEntity.noContent().build();
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.notFound().build();
+            }
+        }
+
+        @GetMapping("/active")
+        public ResponseEntity<List<Student>> getActiveStudents() {
+            List<Student> activeStudents = studentService.getActiveStudents();
+            return ResponseEntity.ok(activeStudents);
+        }
+    }
+    ```
+    2. 关键注解解释
+        - `@RestController`: 组合了 `@Controller` 和 `@ResponseBody`，表示该类处理 REST 请求并返回 JSON/XML 响应。
+        - `@RequestMapping("api/students")`: 定义基础路径，所有方法的路径都相对于此路径。
+        - `@GetMapping`, `@PostMapping`, `@PutMapping`, `@DeleteMapping`: 分别映射 HTTP GET、POST、PUT、DELETE 请求到对应方法。
+        - `@PathVariable`: 绑定 URL 路径中的变量（如 `{id}`）到方法参数。
+        - `@RequestBody`: 将请求体中的 JSON/XML 数据反序列化为 Java 对象。
+        - `ResponseEntity<T>`: 封装 HTTP 响应，包括状态码、头信息和响应体。
+
