@@ -115,8 +115,8 @@ First, create a Spring Boot project using the [Spring Initializr](https://start.
 > More general — try [Building an Application with Spring Boot](https://spring.io/guides/gs/rest-service/)
 {: .prompt-tip}
 
-![Spring Initializer](../../assets/img/posts/2025-09-18-Running-a-SpringBoot-project-from-scratch/image-1.png){: .light }
-![Spring Initializer](../../assets/img/posts/2025-09-18-Running-a-SpringBoot-project-from-scratch/image.png){: .dark }
+![Spring Initializer](/assets/img/posts/2025-09-18-Running-a-SpringBoot-project-from-scratch/image-1.png){: .light }
+![Spring Initializer](/assets/img/posts/2025-09-18-Running-a-SpringBoot-project-from-scratch/image.png){: .dark }
 
 In the initial setup (shown above) we add the dependencies: Spring Web, Spring Data JPA, and MySQL Driver.
 
