@@ -6,191 +6,63 @@ tags: [springboot, mysql, java]
 mermaid: true
 ---
 
-This article provides a comprehensive guide on how to set up and run a simple Spring Boot project from scratch, covering essential steps such as environment setup, project creation, dependency management, application configuration, and running the application.
+This guide focuses only on how to implement a minimal Spring Boot + Spring Data JPA + MySQL Student CRUD service.  
+All general concepts (layered architecture, REST design, JPA annotations, ID strategies, best practices, pitfalls) are moved to:  
+➡ [Spring Boot Core Concepts](/posts/SpringBoot-core-concepts/)
 
-## What is Spring Boot?
+## Table of Contents
+1. Project Initialization
+2. Dependencies & Structure
+3. Database Setup (DDL + Seed)
+4. Entity
+5. Repository
+6. Service Layer
+7. Controller Layer (REST API)
+8. Common Issues & Quick Diagnostics
 
-Spring Boot is a framework that lets you build production-ready Spring applications quickly with minimal setup. It supplies opinionated defaults, starter dependencies, and runtime auto-configuration so you can focus on business logic instead of infrastructure.
+---
 
-### Key Features
-1. Auto-Configuration: Wires common components based on the classpath.
-2. Starters: Bundled dependencies reduce manual version management.
-3. Embedded Server: Run directly as a standalone JAR (Tomcat/Jetty/Undertow).
-4. Actuator: Built-in endpoints for health, metrics, and monitoring.
-5. Microservice Ready: Integrates easily with Spring Cloud (config, discovery, resilience).
+## 1. Project Initialization
 
-## Project Structure and Data Flow
+Use Spring Initializr [https://start.spring.io](https://start.spring.io):
+- Project: Maven / Java 17+
+- Dependencies: Spring Web, Spring Data JPA, MySQL Driver
+- Packaging: Jar
 
-```mermaid
-graph TD
-    subgraph Frontend
-        Client([Client/User]) -- "(1) User interacts with UI" --> Browser[Browser]
-    end
+## 2. Dependencies & Structure
 
-    subgraph Backend
-        API_Layer["API Layer (Controller)"]
-        Service_Layer["Service Layer"]
-        DataAccess_Layer["Data Access Layer (DAO)"]
-        Database[(Database)]
-    end
+Core dependencies (managed via starters):
+- spring-boot-starter-web
+- spring-boot-starter-data-jpa
+- mysql-connector-j
 
-    %% Request Flow: Frontend to Backend
-    Browser -- "(2) Sends HTTP Request" --> API_Layer
-    API_Layer -- "(3) Forwards request to Service" --> Service_Layer
-    Service_Layer -- "(4) Executes business logic and requests data" --> DataAccess_Layer
-    DataAccess_Layer -- "(5) Creates and executes query" --> Database
-
-    %% Response Flow: Backend to Frontend
-    Database -- "(6) Returns query result" --> DataAccess_Layer
-    DataAccess_Layer -- "(7) Maps result to objects" --> Service_Layer
-    Service_Layer -- "(8) Processes data and returns response" --> API_Layer
-    API_Layer -- "(9) Sends HTTP Response (e.g., JSON)" --> Browser
-    Browser -- "(10) Renders data in UI" --> Client
+Minimal directory layout (irrelevant files omitted):
 ```
-The diagram above illustrates the typical architecture of a modern web application, which this project follows. The structure is divided into a frontend and a backend, with data flowing between them in a well-defined manner as numbered in the diagram.
+src/main/java/com/example/school/
+  student_service/
+    dao/
+    service/
+    controller/
+src/main/resources/
+  application.properties
+```
 
-### Backend Layers
+application.properties example:
+```
+spring.application.name=student-service
 
-The backend is composed of several distinct layers, each with a specific responsibility:
+spring.datasource.url=jdbc:mysql://localhost:3306/school_db?useSSL=false&serverTimezone=UTC&characterEncoding=utf8
+spring.datasource.username=root
+spring.datasource.password=1
 
-#### API Layer (Controller)
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQL8Dialect
+```
 
-This is the entry point for all incoming requests from the frontend (steps 2 & 9). It's responsible for exposing endpoints (URLs), handling HTTP requests/responses, and calling the appropriate service layer methods. This layer implements a RESTful API, which follows standard conventions for web services.
+## 3. Database Setup
 
-##### RESTful API Conventions
-
-*   **Paths (Endpoints)**: In a RESTful architecture, each URL represents a resource. Paths should contain nouns that correspond to the application's resources (e.g., `/users`, `/orders`), not verbs. These nouns often align with database table names.
-
-> REST (Representational State Transfer) is an architectural style for designing networked applications.
-> It's not a strict protocol but a set of constraints that, when followed, enable scalable and easy-to-use web services.
-> The core idea is to treat server-side resources as objects that can be manipulated using standard HTTP methods.
-{: .prompt-info}
-
-*   **HTTP Verbs**: Specific actions on these resources are defined by the HTTP method used in the request:
-    *   `GET` (SELECT): Retrieve one or more resources from the server.
-    *   `POST` (CREATE): Create a new resource on the server.
-    *   `PUT` (UPDATE): Update a resource on the server (by providing the complete resource).
-    *   `PATCH` (UPDATE): Partially update a resource on the server (by providing only the changed attributes).
-    *   `DELETE` (DELETE): Remove a resource from the server.
-
-#### Service Layer
-
-This layer contains the core business logic of the application (steps 3 & 8). It's responsible for orchestrating operations by calling methods on the Data Access Layer and implementing complex business rules. It is decoupled from the web layer, meaning it doesn't know about HTTP requests or responses.
-
-#### Data Access Layer (Repository)
-
-This layer is responsible for all communication with the database (steps 4, 5, 6, & 7). Its tasks include performing CRUD (Create, Read, Update, Delete) operations and translating business objects from the service layer into database rows and vice-versa. In Spring Boot, this is often implemented using Spring Data JPA.
-
-> Spring Data JPA is a part of the larger Spring Data family that aims to significantly simplify the implementation of data access layers. 
-> It builds on top of the Java Persistence API (JPA) standard. 
-> Its key feature is the ability to create repository implementations automatically, at runtime, from a repository interface. 
-> This means developers don't have to write boilerplate code for standard CRUD operations, freeing them to focus on business-specific queries.
-{: .prompt-info}
-
-#### Database
-
-This is the **persistence layer** where the application's data is stored and managed.
-
-> **Persistence** refers to the process of storing data in a non-volatile storage medium (like a hard disk), so that the data "persists" and remains available even after the application that created it has shut down. 
-> The database is the component responsible for ensuring the durability and integrity of the application's data.
-{: .prompt-info}
-
-
-## Building the Student CRUD Application
-
-This section provides a step-by-step guide to implementing a full CRUD (Create, Read, Update, Delete) functionality for a `Student` entity. We will build the application from the database layer up to the API endpoint.
-
-The implementation is divided into three main parts, following the application architecture:
-
-1.  **Data Access Layer**: Setting up the database, entity, and repository.
-2.  **Service Layer**: Implementing the core business logic.
-3.  **Controller Layer**: Exposing the functionality through RESTful API endpoints.
-
-### Creating the Spring Boot Project
-
-First, create a Spring Boot project using the [Spring Initializr](https://start.spring.io/) to quickly generate the project skeleton.
-
-> **Official Getting Started Manuals**:  
-> Super quick — try the [Quickstart Guide](https://spring.io/quickstart).  
-> More general — try [Building an Application with Spring Boot](https://spring.io/guides/gs/rest-service/)
-{: .prompt-tip}
-
-![Spring Initializer](/assets/img/posts/2025-09-18-Running-a-SpringBoot-project-from-scratch/image-1.png){: .light }
-![Spring Initializer](/assets/img/posts/2025-09-18-Running-a-SpringBoot-project-from-scratch/image.png){: .dark }
-
-In the initial setup (shown above) we add the dependencies: Spring Web, Spring Data JPA, and MySQL Driver.
-
-#### Dependencies Explained
-
-1. Spring Web  
-   - Purpose: Provides Spring MVC for building RESTful HTTP APIs and serving web content.  
-      > ***什么是 Spring MVC?***  
-      > Spring MVC 是基于 Servlet 的分层 Web 框架，实现了经典的 Model–View–Controller 模式，用于构建基于 HTTP 的同步 Web/REST 应用。  
-      >
-      > 核心思想：
-      > - M(Model): 业务数据与状态（实体、DTO、Form 对象）  
-      > - V(View): 展示层（JSP、Thymeleaf、JSON 序列化结果等）  
-      > - C(Controller): 接收请求、协调模型与视图、返回结果
-      >
-      > 与 Spring Boot 关系：  
-      > - Spring Boot 在其之上做自动配置，减少 XML/样板配置
-      > - 使用 @SpringBootApplication + spring-boot-starter-web 即可开箱运行
-      >
-      > 典型流程： 客户端请求 -> DispatcherServlet -> HandlerMapping -> Controller 方法 -> 返回 Model/数据 -> ViewResolver 或 HttpMessageConverter -> 响应
-      {: .prompt-info}
-
-   - Includes: DispatcherServlet, controllers (@RestController / @Controller), request mapping, Jackson JSON serialization, validation integration.  
-   - When Needed: Any time you expose HTTP endpoints.  
-   - 用于构建基于 HTTP 的 REST 接口与 Web 层。  
-
-2. Spring Data JPA  
-   - Purpose: Simplifies data access using JPA; reduces boilerplate by generating CRUD implementations from repository interfaces.  
-   - Features: JpaRepository, query method derivation, pagination & sorting, transactional support, entity mapping integration.  
-   - When Needed: You persist relational data via JPA/Hibernate.  
-   - 基于 JPA 提供数据访问抽象，自动生成常规数据库操作。  
-
-3. MySQL Driver  
-   - Purpose: JDBC (Java Database Connectivity) driver enabling the application to open connections to a MySQL database.  
-   - Role: Translates JDBC calls to MySQL protocol; required at runtime (not used directly in code).  
-   - Configuration: Set spring.datasource.url / username / password; optionally Hibernate dialect (often auto-detected).  
-   - MySQL 的 JDBC 驱动，负责与数据库建立与传输通信。  
-
-> Spring Web + Spring Data JPA + MySQL Driver form the minimal stack for a REST + database CRUD service.
-{: .prompt-tip}
-
-### 1. Data Access Layer: The Foundation
-
-#### 1.1 Layer Overview
-The Data Access Layer (DAL) handles persistence concerns:
-- Defines schema mapping (object ↔ table)
-- Encapsulates CRUD via JPA repositories
-- Keeps business logic out of entities
-- Shields upper layers from SQL/JDBC specifics
-
-Flow: Entity definition -> Repository interface -> Spring Data auto-implementation -> Service layer consumption.
-
-#### 1.2 Schema & Field Mapping
-Logical → physical mapping for Student:
-
-| Java Field     | Column          | Type (Java / SQL)     | Notes            |
-| -------------- | --------------- | --------------------- | ---------------- |
-| id             | id              | Long / BIGINT         | PK, auto         |
-| firstName      | first_name      | String / VARCHAR(50)  | NOT NULL         |
-| lastName       | last_name       | String / VARCHAR(50)  | NOT NULL         |
-| email          | email           | String / VARCHAR(120) | UNIQUE, NOT NULL |
-| major          | major           | String / VARCHAR(100) | Nullable         |
-| enrollmentDate | enrollment_date | LocalDate / DATE      | Nullable         |
-| dateOfBirth    | date_of_birth   | LocalDate / DATE      | Nullable         |
-| age            | age             | Integer / INT         | Nullable         |
-| active         | active          | Boolean / TINYINT(1)  | Default TRUE     |
-
-> ORM (Object-Relational Mapping) bridges the gap between object-oriented code and relational databases.
-> It maps classes to tables, attributes to columns, and manages CRUD operations.
-{: .prompt-info}
-
-#### 1.3 Database DDL & Seed Data
+Execute schema and (optional) seed data:
 ```sql
-CREATE DATABASE school_db;
+CREATE DATABASE IF NOT EXISTS school_db;
 USE school_db;
 
 CREATE TABLE students (
@@ -205,43 +77,18 @@ CREATE TABLE students (
   active TINYINT(1) DEFAULT 1
 );
 
--- Sample data (partial shown)
-INSERT INTO students (first_name, last_name, email, major, enrollment_date, date_of_birth, age, active) VALUES
-('John', 'Doe', 'john.doe1@example.com', 'Computer Science', '2023-09-01', '2003-05-14', 22, 1),
-('Jane', 'Smith', 'jane.smith2@example.com', 'Information Systems', '2022-09-01', '2002-11-02', 22, 0),
-('Alex', 'Johnson', 'alex.johnson3@example.com', 'Mathematics', '2024-02-15', '2001-02-25', 24, 1),
-('Emily', 'Brown', 'emily.brown4@example.com', 'Physics', '2023-01-10', '2004-07-09', 21, 0),
-('Michael', 'Davis', 'michael.davis5@example.com', 'Chemistry', '2022-09-01', '2000-12-30', 24, 1),
-('Sophia', 'Miller', 'sophia.miller6@example.com', 'Biology', '2025-03-01', '2005-03-18', 20, 0),
-('Daniel', 'Wilson', 'daniel.wilson7@example.com', 'Economics', '2022-01-12', '1999-08-12', 26, 1),
-('Olivia', 'Moore', 'olivia.moore8@example.com', 'Finance', '2023-09-15', '2002-01-05', 23, 0),
-('Liam', 'Taylor', 'liam.taylor9@example.com', 'Business Administration', '2024-09-01', '2003-10-28', 21, 1),
-('Ava', 'Anderson', 'ava.anderson10@example.com', 'English', '2023-06-01', '2004-02-17', 21, 0),
-('Noah', 'Thomas', 'noah.thomas11@example.com', 'History', '2021-09-01', '1998-06-01', 27, 1),
-('Isabella', 'Jackson', 'isabella.jackson12@example.com', 'Psychology', '2024-09-21', '2006-09-21', 19, 0),
-('William', 'White', 'william.white13@example.com', 'Sociology', '2023-02-01', '2001-12-11', 23, 1),
-('Mia', 'Harris', 'mia.harris14@example.com', 'Philosophy', '2022-03-01', '1999-03-29', 26, 0),
-('James', 'Martin', 'james.martin15@example.com', 'Art', '2024-09-01', '2002-07-07', 23, 1),
-('Charlotte', 'Thompson', 'charlotte.thompson16@example.com', 'Music', '2023-09-01', '2003-01-30', 22, 0),
-('Benjamin', 'Garcia', 'benjamin.garcia17@example.com', 'Data Science', '2020-09-01', '2000-05-05', 25, 1),
-('Amelia', 'Martinez', 'amelia.martinez18@example.com', 'Software Engineering', '2019-09-01', '1997-11-19', 27, 0),
-('Elijah', 'Robinson', 'elijah.robinson19@example.com', 'Mechanical Engineering', '2024-01-15', '2005-08-08', 20, 1),
-('Harper', 'Clark', 'harper.clark20@example.com', 'Electrical Engineering', '2020-09-01', '2001-09-15', 24, 0),
-('Lucas', 'Rodriguez', 'lucas.rodriguez21@example.com', 'Civil Engineering', '2019-01-10', '1998-12-03', 26, 1),
-('Evelyn', 'Lewis', 'evelyn.lewis22@example.com', 'Architecture', '2023-04-10', '2004-04-22', 21, 0),
-('Mason', 'Lee', 'mason.lee23@example.com', 'Environmental Science', '2024-10-01', '2003-11-30', 21, 1),
-('Abigail', 'Walker', 'abigail.walker24@example.com', 'Statistics', '2022-11-20', '2002-06-16', 23, 0),
-('Logan', 'Hall', 'logan.hall25@example.com', 'Marketing', '2021-09-01', '1999-10-10', 25, 1),
-('Ella', 'Allen', 'ella.allen26@example.com', 'Accounting', '2020-01-20', '2000-01-01', 25, 0),
-('Jacob', 'Young', 'jacob.young27@example.com', 'Political Science', '2025-02-10', '2005-12-25', 19, 1),
-('Avery', 'Hernandez', 'avery.hernandez28@example.com', 'Linguistics', '2023-09-09', '2004-09-09', 21, 0),
-('Carter', 'King', 'carter.king29@example.com', 'Education', '2024-03-03', '2003-03-03', 22, 1),
-('Grace', 'Wright', 'grace.wright30@example.com', 'Nursing', '2019-07-01', '2001-07-20', 24, 0);
+INSERT INTO students (first_name,last_name,email,major,enrollment_date,date_of_birth,age,active) VALUES
+('John','Doe','john.doe1@example.com','Computer Science','2023-09-01','2003-05-14',22,1),
+('Jane','Smith','jane.smith2@example.com','Information Systems','2022-09-01','2002-11-02',22,0);
 ```
 
-#### 1.4 Entity Class (Student)
-`src/main/java/com/example/school/student_service/dao/Student.java`{: .filepath}
+## 4. Entity
+
+Keep it lean: persistence-only, no business logic; avoid Lombok @Data to prevent equals/hashCode or lazy-loading side effects.  
+Requires: no-arg constructor + fields + getters/setters.
+
 ```java
+// src/main/java/com/example/school/student_service/dao/Student.java
 package com.example.school.student_service.dao;
 
 import jakarta.persistence.*;
@@ -250,393 +97,240 @@ import java.time.LocalDate;
 @Entity
 @Table(name = "students")
 public class Student {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "first_name", nullable = false, length = 50)
+    @Column(name="first_name", nullable=false, length=50)
     private String firstName;
 
-    @Column(name = "last_name", nullable = false, length = 50)
+    @Column(name="last_name", nullable=false, length=50)
     private String lastName;
 
-    @Column(name = "email", nullable = false, unique = true, length = 120)
+    @Column(name="email", nullable=false, unique=true, length=120)
     private String email;
 
-    @Column(name = "major", length = 100)
+    @Column(name="major", length=100)
     private String major;
 
-    @Column(name = "enrollment_date")
+    @Column(name="enrollment_date")
     private LocalDate enrollmentDate;
 
-    @Column(name = "date_of_birth")
+    @Column(name="date_of_birth")
     private LocalDate dateOfBirth;
 
-    @Column(name = "age")
     private Integer age;
+    private Boolean active = Boolean.TRUE;
 
-    @Column(name = "active")
-    private Boolean active;
+    public Student() {}
+
+    public Student(String firstName, String lastName, String email) {
+        this.firstName = firstName; this.lastName = lastName; this.email = email;
+    }
+
+    // Getters & Setters omitted...
 }
 ```
+For annotations and ID strategies, see the Core Concepts article.
 
-#### 1.5 Core JPA Annotations
+## 5. Repository
 
-| Annotation      | Purpose                       | Key Attributes                   | Notes                            |
-| --------------- | ----------------------------- | -------------------------------- | -------------------------------- |
-| @Entity         | Marks a class as a JPA entity | name                             | Needs no-arg ctor; avoid final   |
-| @Table          | Table mapping customization   | name, uniqueConstraints, indexes | Optional if name matches         |
-| @Id             | Declares Primary Key(PK)      | —                                | Exactly one per entity           |
-| @GeneratedValue | PK generation                 | strategy, generator              | Must match DB capability         |
-| @Column         | Column mapping                | name, nullable, length, unique   | Optional; defaults to field name |
+Use method name derivation for clarity; avoid manual SQL unless necessary.  
+Conventions: `findById` / `deleteById` / `findByEmail` / `findByActiveTrue`.
 
-Guidelines:
-- Use wrapper types (Long, Integer, Boolean) for nullable columns
-- Keep entity lean: no business logic, no heavy constructors
-- Prefer field access (place annotations on fields consistently)
-- Avoid @Data to prevent problematic equals/hashCode/toString
-  > **Lombok @Data Warning**:
-  > Using Lombok's `@Data` on JPA entities can lead to issues:
-  > - **Equals/HashCode**: Auto-generated methods may include lazy-loaded fields, causing `LazyInitializationException` or performance hits.
-  > - **ToString**: Can trigger lazy loading, leading to unexpected database access.
-  > - **Mutability**: Entities should have controlled mutability; `@Data` generates setters for all fields.
-  > Consider using `@Getter` and `@Setter` selectively or writing explicit methods.
-  {: .prompt-warning}
-  > **Definition of lazy-reloaded**: Fields that are not immediately loaded from the database but fetched on-demand, often leading to exceptions if accessed outside a transaction.
-  {: .prompt-info}
-
-#### 1.6 ID Generation Strategies
-
-| Strategy      | Mechanism           | Fits               | Pros           | Cons                           |
-| ------------- | ------------------- | ------------------ | -------------- | ------------------------------ |
-| IDENTITY      | DB auto-increment   | MySQL, SQL Server  | Simple         | No batch insert optimization   |
-| SEQUENCE      | DB sequence         | PostgreSQL, Oracle | Good batching  | Requires sequence definition   |
-| AUTO          | Provider decides    | Generic            | Minimal config | Unpredictable across databases |
-| TABLE         | Table-based counter | Any                | Portable       | Extra table + contention cost  |
-| UUID / custom | App-generated       | Any                | DB independent | Larger index / fragmentation   |
-
-总结：
-- IDENTITY：数据库自增，最简单；批量插入优化差。
-- SEQUENCE：预取序列号，批量性能好；需数据库支持序列。
-- AUTO：交给提供方决定，省心；跨库迁移不确定。
-- TABLE：用辅助表模拟序列，兼容性好；性能/锁开销大。
-- UUID/自定义：应用生成，无数据库依赖；索引更大、随机写放大，可选时间有序（ULID/雪花）缓解碎片。
-
-Examples:
 ```java
-// MySQL
-@Id @GeneratedValue(strategy = GenerationType.IDENTITY)
-private Long id;
-
-// PostgreSQL sequence
-/*
-@Id
-@SequenceGenerator(name="student_seq", sequenceName="student_seq", allocationSize=1)
-@GeneratedValue(strategy=GenerationType.SEQUENCE, generator="student_seq")
-private Long id;
-*/
-
-// UUID (Hibernate 6+)
-/*
-@Id
-@GeneratedValue(strategy = GenerationType.UUID)
-private UUID id;
-*/
-```
-
-Selection Tips:
-- MySQL: IDENTITY unless using app-side IDs (snowflake/UUID) for scaling
-- PostgreSQL: SEQUENCE with tuned allocationSize
-- Cross-service ID visibility / sharding: consider app-generated IDs
-
-Common Issues:
-
-| Symptom                 | Cause                  | Fix                          |
-| ----------------------- | ---------------------- | ---------------------------- |
-| No identifier specified | Missing @Id            | Add @Id                      |
-| Wrong strategy for DB   | e.g. SEQUENCE on MySQL | Switch to IDENTITY           |
-| Poor batch performance  | Using IDENTITY         | Use SEQUENCE / app-generated |
-| UUID index bloat        | Random distribution    | Use time-ordered (ULID)      |
-
-#### 1.7 Best Practices & Pitfalls Cheat Sheet
-Best Practices:
-- Entity = persistence model only; expose DTOs externally
-- Validate uniqueness (email) before persist, don't rely on exception flow
-- Keep equals/hashCode based on immutable business key (e.g. email) or defer until persisted
-- Add indexes for high-selectivity filter columns (email, active if frequently queried)
-
-Pitfalls:
-
-| Pitfall                  | Risk                        | Mitigation                         |
-| ------------------------ | --------------------------- | ---------------------------------- |
-| Using primitives         | Can't represent null        | Use wrappers                       |
-| Eager serialization      | LazyInitializationException | Map to DTO inside transaction      |
-| Overusing @Data          | Broken equals/hashCode      | Explicit methods or limited Lombok |
-| Business logic in entity | Transaction leaks           | Keep in service layer              |
-
-> **DTO Reminder**:  
-> Use DTOs to: hide internal columns, aggregate data, prevent lazy loading issues, version APIs cleanly.
-{: .prompt-tip}
-
-#### 1.8 JPA Repository Interface
-
-在定义完数据库表(DDL)和实体类(Entity)后，下一步是创建数据访问层的 JPA Repository 接口。利用 Spring Data JPA，我们可以通过定义接口来自动生成常用的 CRUD 操作，为服务层提供数据访问功能。
-
-1. 创建 Repository 接口
-
-`src/main/java/com/example/school/student_service/dao/StudentRepository.java`{: .filepath}
-```java
+// src/main/java/com/example/school/student_service/dao/StudentRepository.java
 package com.example.school.student_service.dao;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
-import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface StudentRepository extends JpaRepository<Student, Long>, JpaSpecificationExecutor<Student> {
+
+    Optional<Student> findByEmail(String email);
+
+    List<Student> findByAgeBetween(Integer start, Integer end);
+
+    List<Student> findByActiveTrue();
+
+    List<Student> findByFirstNameStartingWith(String prefix);
+}
+```
+
+## 6. Service Layer
+
+Responsibilities: validation (e.g. unique email), transactional boundaries, controlled updates.  
+Manual field copying prevents unintended overwrites.
+
+```java
+// src/main/java/com/example/school/student_service/service/StudentService.java
+package com.example.school.student_service.service;
+
+import com.example.school.student_service.dao.Student;
+import java.util.List;
+import java.util.Optional;
+
+public interface StudentService {
+    Student create(Student student);
+    List<Student> findAll();
+    Optional<Student> findOne(Long id);
+    Student update(Long id, Student incoming);
+    void delete(Long id);
+    List<Student> findActive();
+}
+```
+
+```java
+// src/main/java/com/example/school/student_service/service/StudentServiceImpl.java
+package com.example.school.student_service.service;
+
+import com.example.school.student_service.dao.Student;
+import com.example.school.student_service.dao.StudentRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-@Repository
-public interface StudentRepository extends JpaRepository<Student, Long>, JpaSpecificationExecutor<Student> {
+@Service
+@Transactional
+public class StudentServiceImpl implements StudentService {
 
-    // 精确匹配单个（ email ）
-    Optional<Student> findStudentByEmail(String email);
+    private final StudentRepository repo;
 
-    // 区间查询：Between 包含端点
-    List<Student> findStudentsByAgeBetween(Integer ageAfter, Integer ageBefore);
+    public StudentServiceImpl(StudentRepository repo) {
+        this.repo = repo;
+    }
 
-    // 布尔字段快速派生：Active = true
-    List<Student> findStudentsByActiveTrue();
+    @Override
+    public Student create(Student student) {
+        repo.findByEmail(student.getEmail()).ifPresent(s ->
+            { throw new IllegalArgumentException("Email already exists: " + s.getEmail()); });
+        return repo.save(student);
+    }
 
-    // 前缀匹配（LIKE 'xxx%'）
-    List<Student> findStudentsByFirstNameStartingWith(String firstName);
+    @Override
+    @Transactional(readOnly = true)
+    public List<Student> findAll() {
+        return repo.findAll();
+    }
 
-    // 说明：方法名中的 Student / Students 语义不影响解析，但建议：
-    // - 单对象返回类型用单数（findStudentByEmail）
-    // - 集合返回类型用复数（findStudentsBy...）提升可读性
-    // ...
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.Optional<Student> findOne(Long id) {
+        return repo.findById(id);
+    }
+
+    @Override
+    public Student update(Long id, Student incoming) {
+        return repo.findById(id).map(existing -> {
+            existing.setFirstName(incoming.getFirstName());
+            existing.setLastName(incoming.getLastName());
+            existing.setEmail(incoming.getEmail());
+            existing.setMajor(incoming.getMajor());
+            existing.setEnrollmentDate(incoming.getEnrollmentDate());
+            existing.setDateOfBirth(incoming.getDateOfBirth());
+            existing.setAge(incoming.getAge());
+            existing.setActive(incoming.getActive());
+            return existing;
+        }).orElseThrow(() -> new IllegalArgumentException("Student not found id=" + id));
+    }
+
+    @Override
+    public void delete(Long id) {
+        if (!repo.existsById(id)) {
+            throw new IllegalArgumentException("Student not found id=" + id);
+        }
+        repo.deleteById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Student> findActive() {
+        return repo.findByActiveTrue();
+    }
 }
 ```
-1. 什么是 `@Repository` 注解？  
-   标记数据访问组件，加入 Spring 容器，并启用 Spring 统一数据访问异常转换(DataAccessException)。对纯 Spring Data 接口不是硬性必须（框架仍会创建代理），但添加后语义清晰且便于统一风格。  
 
-2. 为什么 `StudentRepository` 要继承这些接口？  
-   - `JpaRepository<Student, Long>`: 提供 CRUD、分页、排序等通用能力。  
-   - `JpaSpecificationExecutor<Student>`: 支持基于 Specification 的动态条件组合（复杂筛选、高级搜索）。 
+## 7. Controller Layer
 
-3. 为什么使用接口？  
-   Spring Data 在运行时基于接口创建动态代理实现类：  
-   - 你只需要定义“想要什么”，框架负责“怎么做”  
-   - 便于 AOP（事务、审计、统计）织入  
-   - 减少模板样板代码（不用写实现类 + EntityManager 操作）  
+Adjustments:
+- `@PutMapping` uses `@RequestBody` for update payload
+- `DELETE` returns 204
+- Simple inline error mapping; production systems should centralize via `@ControllerAdvice`
 
-4. 接口内的方法为什么可以这样定义？  
-   依赖“方法名解析（Query Method Derivation）”机制：  
-   - 语法片段：`find + (可选限定) + By + 条件(字段 + 运算符) + (And/Or ...)`  
-   - 示例：`findStudentsByFirstNameStartingWith` → JPQL: `where firstName like ?||'%'`  
-   - 支持关键词：`Between` / `Like` / `In` / `True` / `False` / `IsNull` / `GreaterThan` / `OrderBy...`  
-   - 返回值可为实体、Optional、集合、Slice、Page 等  
-   - 复杂场景可切换：`@Query` / `Specification` / `QueryDSL` / 原生 SQL(`@Query(nativeQuery=true)`)  
+```java
+// src/main/java/com/example/school/student_service/controller/StudentController.java
+package com.example.school.student_service.controller;
 
-补充：  
-- 单 vs 复数命名不影响功能，但保持语义统一便于维护。  
-- 若方法名过长（>3 条件组合）建议改用 `Specification` 或 `@Query`。  
-- `@Repository` 也能帮助某些 IDE/扫描器分类显示。  
+import com.example.school.student_service.dao.Student;
+import com.example.school.student_service.service.StudentService;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
-### 2. Service Layer: Business Logic
+import java.net.URI;
+import java.util.List;
 
-下一步是实现 Service Layer（业务逻辑层），它负责协调数据访问、执行业务规则，并为 Controller 层提供接口。Service Layer 应包含一个 `StudentService` 类，定义 CRUD 操作的方法，并注入 `StudentRepository`。
+@RestController
+@RequestMapping("/api/students")
+public class StudentController {
 
-#### 2.1 Service Layer Overview
+    private final StudentService service;
+    public StudentController(StudentService service) { this.service = service; }
 
-Service Layer (业务逻辑层) 负责：
-- 协调数据访问（调用 Repository）
-- 执行业务规则（验证、转换、计算）
-- 提供给 Controller 层调用的接口
-- 保持与 Web 层解耦（不处理 HTTP 细节）
-
-流程：Controller 调用 Service 方法 -> Service 调用 Repository -> 返回结果给 Controller。
-
-#### 2.2 Service Class Implementation
-
-1. 定义 StudentService 接口
-   filepath: `src/main/java/com/example/school/student_service/service/StudentService.java`{: .filepath}
-    ```java
-    package com.example.school.student_service.service;
-
-    import com.example.school.student_service.model.Student;
-
-    import java.util.List;
-    import java.util.Optional;
-
-    public interface StudentService {
-        Student saveStudent(Student student);
-        List<Student> getAllStudents();
-        Optional<Student> getStudentById(Long id);
-        Student updateStudent(Long id, Student student);
-        void deleteStudent(Long id);
-        List<Student> getActiveStudents();
+    @PostMapping
+    public ResponseEntity<Student> create(@RequestBody Student student) {
+        Student saved = service.create(student);
+        return ResponseEntity.created(URI.create("/api/students/" + saved.getId())).body(saved);
     }
-    ```
 
-1. 实现 StudentService 接口
-   
-   filepath: `src/main/java/com/example/school/student_service/service/StudentServiceImpl.java`{: .filepath}
-   ```java
-   package com.example.school.student_service.service;
-   import com.example.school.student_service.dao.Student;
-   import com.example.school.student_service.dao.StudentRepository;
-   import org.springframework.beans.BeanUtils;
-   import org.springframework.beans.factory.annotation.Autowired;
-   import org.springframework.stereotype.Service;
-   import org.springframework.transaction.annotation.Transactional;
+    @GetMapping
+    public List<Student> list() {
+        return service.findAll();
+    }
 
-   import java.util.List;
-   import java.util.Optional;
+    @GetMapping("/{id}")
+    public ResponseEntity<Student> get(@PathVariable Long id) {
+        return service.findOne(id).map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
 
-   @Service
-   @Transactional
-   public class StudentServiceImpl implements StudentService {
-       @Autowired
-       private StudentRepository studentRepository;
-
-       @Override
-       public Student saveStudent(Student student) {
-           if (studentRepository.findStudentByEmail(student.getEmail()).isPresent()) {
-               throw new IllegalArgumentException("Email already exists" + student.getEmail());
-           }
-           return studentRepository.save(student);
-       }
-
-       @Override
-       public List<Student> getAllStudents() {
-           return studentRepository.findAll();
-       }
-
-       @Override
-       public Optional<Student> getStudentById(Long id) {
-           return studentRepository.findStudentById(id);
-       }
-
-       @Override
-       public Student updateStudent(Long id, Student updatedStudent) {
-           return studentRepository.findStudentById(id).map(student -> {
-               BeanUtils.copyProperties(updatedStudent, student);
-               return studentRepository.save(student); // persist changes
-           }).orElseThrow(() -> new IllegalArgumentException("Student not found with id: " + id));
-       }
-
-       @Override
-       public void deleteStudent(Long id) {
-           studentRepository.deleteStudentById(id);
-       }
-
-       @Override
-       public List<Student> getActiveStudents() {
-           return studentRepository.getStudentsByActiveTrue();
-       }
-   }
-   ```
-
-   #### Annotation Explanations
-   - **@Service Annotation**: Marks the class as a service component in Spring's component scanning. It registers the class as a Bean in the application context, enabling dependency injection and indicating it handles business logic.
-   - **@Transactional Annotation**: Enables declarative transaction management for the class. It ensures that database operations within methods are executed atomically, with automatic commit or rollback on success/failure, maintaining data consistency.
-   - **@Autowired Annotation**: Performs automatic dependency injection by Spring. It injects a matching Bean (e.g., `StudentRepository`) into the annotated field, simplifying dependency management and promoting loose coupling.
-
-   ### 3. Controller Layer: Exposing the API
-
-   #### 3.1 Controller Layer Overview
-
-    Controller Layer (控制器层) 负责：
-    - 处理 HTTP 请求/响应
-    - 调用 Service 层方法
-    - 映射 URL 路径和 HTTP 方法
-    - 返回 JSON/XML 等格式的数据
-    - 处理请求参数和响应结果的转换
-
-    流程：客户端请求 -> DispatcherServlet -> Controller 方法 -> 调用 Service -> 返回结果 -> 响应客户端。
-
-   #### 3.2 Controller Class Implementation
-   
-   1. 定义 StudentController 类
-   filepath: `src/main/java/com/example/school/student_service/controller/StudentController.java`{: .filepath}
-
-    ```java
-    package com.example.school.student_service.controller;
-
-    import com.example.school.student_service.dao.Student;
-    import com.example.school.student_service.service.StudentService;
-    import org.springframework.beans.factory.annotation.Autowired;
-    import org.springframework.http.HttpStatus;
-    import org.springframework.http.ResponseEntity;
-    import org.springframework.web.bind.annotation.*;
-
-    import java.util.List;
-    import java.util.Optional;
-
-    @RestController
-    @RequestMapping("api/students")
-    public class StudentController {
-        @Autowired
-        StudentService studentService;
-
-        // CREATE: POST /api/students
-        @PostMapping
-        public ResponseEntity<Student> createStudent(@RequestBody Student student) {
-            try {
-                Student savedStudent = studentService.saveStudent(student);
-                return ResponseEntity.status(HttpStatus.CREATED).body(savedStudent);
-            } catch (IllegalArgumentException e) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-            }
-        }
-
-        // READ ALL: GET /api/students
-        @GetMapping
-        public ResponseEntity<List<Student>> getAllStudents() {
-            List<Student> students = studentService.getAllStudents();
-            return ResponseEntity.ok(students);
-        }
-
-        // READ BY ID: GET /api/students/{id}
-        @GetMapping("/{id}")
-        public ResponseEntity<Student> getStudentById(@PathVariable Long id) {
-            Optional<Student> student = studentService.getStudentById(id);
-            return student.map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
-        }
-
-        // UPDATE: PUT /api/students/{id}
-        @PutMapping("/{id}")
-        public ResponseEntity<Student> updateStudent(@PathVariable Long id, @PathVariable Student student) {
-            try {
-                Student updatedStudent = studentService.updateStudent(id, student);
-                return ResponseEntity.ok(updatedStudent);
-            } catch (IllegalArgumentException e) {
-                return ResponseEntity.notFound().build();
-            }
-        }
-
-        @DeleteMapping("/{id}")
-        public ResponseEntity<Student> deleteStudent(@PathVariable Long id) {
-            try {
-                studentService.deleteStudent(id);
-                return ResponseEntity.noContent().build();
-            } catch (IllegalArgumentException e) {
-                return ResponseEntity.notFound().build();
-            }
-        }
-
-        @GetMapping("/active")
-        public ResponseEntity<List<Student>> getActiveStudents() {
-            List<Student> activeStudents = studentService.getActiveStudents();
-            return ResponseEntity.ok(activeStudents);
+    @PutMapping("/{id}")
+    public ResponseEntity<Student> update(@PathVariable Long id, @RequestBody Student payload) {
+        try {
+            return ResponseEntity.ok(service.update(id, payload));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
         }
     }
-    ```
-    2. 关键注解解释
-        - `@RestController`: 组合了 `@Controller` 和 `@ResponseBody`，表示该类处理 REST 请求并返回 JSON/XML 响应。
-        - `@RequestMapping("api/students")`: 定义基础路径，所有方法的路径都相对于此路径。
-        - `@GetMapping`, `@PostMapping`, `@PutMapping`, `@DeleteMapping`: 分别映射 HTTP GET、POST、PUT、DELETE 请求到对应方法。
-        - `@PathVariable`: 绑定 URL 路径中的变量（如 `{id}`）到方法参数。
-        - `@RequestBody`: 将请求体中的 JSON/XML 数据反序列化为 Java 对象。
-        - `ResponseEntity<T>`: 封装 HTTP 响应，包括状态码、头信息和响应体。
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        try {
+            service.delete(id);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @GetMapping("/active")
+    public List<Student> active() {
+        return service.findActive();
+    }
+}
+```
+
+## 8. Common Issues (Quick Reference)
+
+| Symptom                          | Likely Cause                  | Action                            |
+| -------------------------------- | ----------------------------- | --------------------------------- |
+| Table 'students' doesn't exist   | DB not created / wrong schema | Verify schema & connection URL    |
+| 400 / duplicate email constraint | Unique column violated        | Check existence before saving     |
+| 404 on update/delete             | ID not found                  | existsById check before operation |
+| LazyInitializationException      | Serializing lazy relations    | Use DTO (not applicable here)     |
+
+Further topics (transactions, DTO mapping, exception handling, pagination, sorting, Specification queries) are in the Core Concepts article.
 
