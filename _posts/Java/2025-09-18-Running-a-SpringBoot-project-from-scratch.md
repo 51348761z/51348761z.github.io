@@ -4,11 +4,11 @@ date: 2025-09-18 16:33:48 +0800
 categories: [Java, SpringBoot]
 tags: [springboot, mysql, java]
 mermaid: true
+description: A minimal Spring Boot + Spring Data JPA + MySQL Student CRUD service implementation from scratch.
 ---
 
 This guide focuses only on how to implement a minimal Spring Boot + Spring Data JPA + MySQL Student CRUD service.  
-All general concepts (layered architecture, REST design, JPA annotations, ID strategies, best practices, pitfalls) are moved to:  
-➡ [Spring Boot Core Concepts](/posts/SpringBoot-core-concepts/)
+All general concepts (layered architecture, REST design, JPA annotations, ID strategies, best practices, pitfalls) are moved to [Spring Boot Core Concepts](/posts/SpringBoot-core-concepts/).
 
 ## Table of Contents
 1. Project Initialization
@@ -47,15 +47,18 @@ src/main/resources/
   application.properties
 ```
 
-application.properties example:
-```
-spring.application.name=student-service
-
-spring.datasource.url=jdbc:mysql://localhost:3306/school_db?useSSL=false&serverTimezone=UTC&characterEncoding=utf8
-spring.datasource.username=root
-spring.datasource.password=1
-
-spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQL8Dialect
+application.yaml example:
+```yaml
+spring:
+  datasource:
+    username: root
+    password: 1
+  application:
+    name: student-service
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
 ```
 
 ## 3. Database Setup
@@ -84,7 +87,7 @@ INSERT INTO students (first_name,last_name,email,major,enrollment_date,date_of_b
 
 ## 4. Entity
 
-Keep it lean: persistence-only, no business logic; avoid Lombok @Data to prevent equals/hashCode or lazy-loading side effects.  
+Keep it lean: persistence-only, no business logic; avoid Lombok `@Data` to prevent `equals/hashCode` or lazy-loading side effects.  
 Requires: no-arg constructor + fields + getters/setters.
 
 ```java
@@ -131,7 +134,7 @@ public class Student {
     // Getters & Setters omitted...
 }
 ```
-For annotations and ID strategies, see the Core Concepts article.
+For annotations and ID strategies, see the [Core Concepts](https://51348761z.github.io/posts/SpringBoot-core-concepts/) article.
 
 ## 5. Repository
 
@@ -332,5 +335,5 @@ public class StudentController {
 | 404 on update/delete             | ID not found                  | existsById check before operation |
 | LazyInitializationException      | Serializing lazy relations    | Use DTO (not applicable here)     |
 
-Further topics (transactions, DTO mapping, exception handling, pagination, sorting, Specification queries) are in the Core Concepts article.
+Further topics (transactions, DTO mapping, exception handling, pagination, sorting, Specification queries) are in the [Core Concepts](/posts/SpringBoot-core-concepts/) article.
 
