@@ -7,8 +7,8 @@ mermaid: true
 description: A minimal Spring Boot + Spring Data JPA + MySQL Student CRUD service implementation from scratch.
 ---
 
-This guide focuses only on how to implement a minimal Spring Boot + Spring Data JPA + MySQL Student CRUD service.  
-All general concepts (layered architecture, REST design, JPA annotations, ID strategies, best practices, pitfalls) are moved to [Spring Boot Core Concepts](/posts/SpringBoot-core-concepts/).
+This guide focuses only on how to implement a minimal Spring Boot + Spring Data JPA + MySQL Student CRUD service: [my-boot-demo](https://github.com/51348761z/simple-boot-demo){:target="_blank"}.  
+All general concepts (layered architecture, REST design, JPA annotations, ID strategies, best practices, pitfalls) are moved to [Spring Boot Core Concepts](/posts/SpringBoot-core-concepts/){:target="_blank"}.
 
 ## Table of Contents
 1. Project Initialization
@@ -325,6 +325,23 @@ public class StudentController {
     }
 }
 ```
+
+## 注解说明
+
+### @PathVariable
+- **用途**：从URL路径中提取变量值，用于动态路径参数。
+- **示例**：在 `@GetMapping("/{id}")` 中，`@PathVariable Long id` 会从URL如 `/api/students/1` 中提取 `id=1` 并绑定到方法参数。
+- **可选参数**：
+  - `name` 或 `value`：指定路径变量名（默认与参数名匹配）。
+  - `required`：是否必需（默认 `true`；若 `false`，路径变量缺失时参数为 `null`）。
+
+### @RequestBody
+- **用途**：将HTTP请求体的JSON数据反序列化为Java对象。
+- **示例**：在 `@PostMapping` 中，`@RequestBody Student student` 会将请求体JSON转换为 `Student` 对象。
+- **注意**：
+  - 需要Jackson库支持JSON解析。
+  - 对象需有无参构造函数。
+  - 常用于POST/PUT请求传递复杂数据。
 
 ## 8. Common Issues (Quick Reference)
 

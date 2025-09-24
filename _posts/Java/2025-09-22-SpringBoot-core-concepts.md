@@ -55,7 +55,26 @@ REST 约定：
 ## 3. RESTful 设计
 REST (Representational State Transfer) 是一种用于设计网络应用的架构风格，而非一种标准。一个符合 REST 风格的 API 被称为 RESTful API。它强调通过一组统一的、预定义的无状态操作来操作资源。
 
-### 3.1 核心原则
+### 3.1 什么是 URI？
+URI (Uniform Resource Identifier) 是一个用于唯一标识互联网上资源的字符串。它就像是网络上每个资源的“地址”或“身份证号”。URI 分为 URL 和 URN 两种。
+
+- **URL (Uniform Resource Locator)**: 是我们最常见的形式，它不仅标识了资源，还提供了找到该资源的方法（即位置）。例如 `https://api.example.com/students/1`。
+- **URN (Uniform Resource Name)**: 它通过一个唯一的名称来标识资源，但不指定如何找到它。例如 `urn:isbn:0451450523`。
+
+在 Web 开发和 REST API 设计中，我们通常使用的都是 URL。一个典型的 URL 结构如下：
+
+`scheme://host:port/path?query#fragment`
+
+- **Scheme**: 定义了访问资源的协议，如 `http`, `https`。
+- **Host**: 资源所在的服务器域名或 IP 地址，如 `api.example.com`。
+- **Port**: 服务器上监听请求的端口号，`http` 默认为 80，`https` 默认为 443。
+- **Path**: 资源在服务器上的具体路径，如 `/students/1`。这是 REST API 设计中定义资源层次结构的核心部分。
+- **Query**: 提供额外的参数，用于过滤或分页，以 `?` 开始，键值对用 `&` 分隔，如 `?page=1&size=10`。
+- **Fragment**: 指向资源内部的一个部分，以 `#` 开始。在 REST API 中较少使用。
+
+在 RESTful API 中，Path 部分 (`/students/1`) 用于唯一标识一个资源（例如 ID 为 1 的学生），而 Query 部分 (`?active=true`) 则用于对资源集合进行筛选。
+
+### 3.2 核心原则
 1.  **客户端-服务器 (Client-Server)**：分离用户界面和数据存储，提高可移植性和可伸缩性。
 2.  **无状态 (Stateless)**：服务器不保存客户端的会话状态。每个请求都必须包含所有必要信息。
 3.  **可缓存 (Cacheable)**：响应应明确标识自己是否可缓存，以提高性能。
@@ -65,7 +84,7 @@ REST (Representational State Transfer) 是一种用于设计网络应用的架�
     - **自描述消息**：每个消息都包含足够的信息来描述如何处理它（例如，通过 `Content-Type` 头指定媒体类型）。
     - **HATEOAS (Hypermedia as the Engine of Application State)**：响应中应包含链接，指引客户端可以执行的下一步操作。例如，获取一个订单的响应可以包含取消或更新该订单的链接。
 
-### 3.2 设计要点
+### 3.3 设计要点
 良好 API 需要：清晰资源边界、一致命名、合理状态码、幂等性。
 
 **常用状态码**：`200 OK` / `201 Created` / `204 No Content` / `400 Bad Request` / `404 Not Found` / `409 Conflict` / `500 Internal Server Error`。
@@ -281,4 +300,5 @@ public class StudentServiceProxy extends StudentService {
 - REST 设计：[RESTful API Design](https://restfulapi.net/){:target="_blank" }
 
 ---
+
 返回实现篇： [Running a simple SpringBoot project from scratch](/posts/Running-a-SpringBoot-project-from-scratch/){:target="_blank" }
