@@ -11,6 +11,7 @@ This guide focuses only on how to implement a minimal Spring Boot + Spring Data 
 All general concepts (layered architecture, REST design, JPA annotations, ID strategies, best practices, pitfalls) are moved to [Spring Boot Core Concepts](/posts/SpringBoot-core-concepts/){:target="_blank"}.
 
 ## Table of Contents
+
 1. Project Initialization
 2. Dependencies & Structure
 3. Database Setup (DDL + Seed)
@@ -25,6 +26,7 @@ All general concepts (layered architecture, REST design, JPA annotations, ID str
 ## 1. Project Initialization
 
 Use Spring Initializr [https://start.spring.io](https://start.spring.io):
+
 - Project: Maven / Java 17+
 - Dependencies: Spring Web, Spring Data JPA, MySQL Driver
 - Packaging: Jar
@@ -32,11 +34,13 @@ Use Spring Initializr [https://start.spring.io](https://start.spring.io):
 ## 2. Dependencies & Structure
 
 Core dependencies (managed via starters):
+
 - spring-boot-starter-web
 - spring-boot-starter-data-jpa
 - mysql-connector-j
 
 Minimal directory layout (irrelevant files omitted):
+
 ```
 src/main/java/com/example/school/
   student_service/
@@ -48,6 +52,7 @@ src/main/resources/
 ```
 
 application.yaml example:
+
 ```yaml
 spring:
   datasource:
@@ -64,6 +69,7 @@ spring:
 ## 3. Database Setup
 
 Execute schema and (optional) seed data:
+
 ```sql
 CREATE DATABASE IF NOT EXISTS school_db;
 USE school_db;
@@ -134,6 +140,7 @@ public class Student {
     // Getters & Setters omitted...
 }
 ```
+
 For annotations and ID strategies, see the [Core Concepts](https://51348761z.github.io/posts/SpringBoot-core-concepts/) article.
 
 ## 5. Repository
@@ -260,6 +267,7 @@ public class StudentServiceImpl implements StudentService {
 ## 7. Controller Layer
 
 Adjustments:
+
 - `@PutMapping` uses `@RequestBody` for update payload
 - `DELETE` returns 204
 - Simple inline error mapping; production systems should centralize via `@ControllerAdvice`
@@ -329,6 +337,7 @@ public class StudentController {
 ## 注解说明
 
 ### @PathVariable
+
 - **用途**：从URL路径中提取变量值，用于动态路径参数。
 - **示例**：在 `@GetMapping("/{id}")` 中，`@PathVariable Long id` 会从URL如 `/api/students/1` 中提取 `id=1` 并绑定到方法参数。
 - **可选参数**：
@@ -336,6 +345,7 @@ public class StudentController {
   - `required`：是否必需（默认 `true`；若 `false`，路径变量缺失时参数为 `null`）。
 
 ### @RequestBody
+
 - **用途**：将HTTP请求体的JSON数据反序列化为Java对象。
 - **示例**：在 `@PostMapping` 中，`@RequestBody Student student` 会将请求体JSON转换为 `Student` 对象。
 - **注意**：
@@ -353,4 +363,3 @@ public class StudentController {
 | LazyInitializationException      | Serializing lazy relations    | Use DTO (not applicable here)     |
 
 Further topics (transactions, DTO mapping, exception handling, pagination, sorting, Specification queries) are in the [Core Concepts](/posts/SpringBoot-core-concepts/) article.
-
