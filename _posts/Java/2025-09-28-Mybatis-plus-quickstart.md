@@ -126,6 +126,12 @@ public class User {
 - `@TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)`: maps `updateTime` to `update_time` and auto-fills on insert/update.
 - `@Version`: enables optimistic locking via the version column.
 
+> `IdType.AUTO`：使用数据库自增 `ID` 作为主键。  
+> `IdType.NONE`：无特定生成策略，如果全局配置中有 `IdType` 相关的配置，则会跟随全局配置。
+> `IdType.INPUT`：在插入数据前，由用户自行设置主键值。
+> `IdType.ASSIGN_ID`：自动分配 `ID`，适用于 `Long`、`Integer`、`String` 类型的主键。默认使用雪花算法通过 `IdentifierGenerator` 的 `nextId` 实现。
+> `IdType.ASSIGN_UUID`：自动分配 U`UID`，适用于 `String` 类型的主键。默认使用 `UUID` 生成器通过 `IdentifierGenerator` 的 `nextUUID` 实现。
+{: .prompt-info }
 ### 3.3 Create Mapper Interface
 
 `com.wongs.mybatisplusdemo.mapper.UserMapper`{: .filepath}
