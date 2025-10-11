@@ -17,7 +17,7 @@ This article discusses the configuration of MySQL for the Music-Gen project.
 CREATE DATABASE music_gen_db;
 USE music_gen_db;
 CREATE TABLE `user_info` (
-  `user_id` binary(16) NOT NULL COMMENT 'User ID',
+  `user_id` varchar(32) NOT NULL COMMENT 'User ID',
   `email` varchar(50) DEFAULT NULL COMMENT 'Email',
   `nick_name` varchar(20) DEFAULT NULL COMMENT 'Nickname',
   `avatar` varchar(50) DEFAULT NULL COMMENT 'User avatar',
@@ -55,10 +55,10 @@ This setting defines how MySQL stores row data on disk. `DYNAMIC` is the modern 
 
 ```sql
 CREATE TABLE `tb_music_info` (
-    `music_id` binary(16) NOT NULL COMMENT 'Unique identifier for the music track',
-    `user_id` binary(16) NOT NULL COMMENT 'ID of the user who created the music',
-    `task_id` binary(16) NOT NULL COMMENT 'ID of the generation task from the AI service',
-    `creation_id` binary(16) NOT NULL COMMENT 'Internal creation identifier',
+    `music_id` varchar(32) NOT NULL COMMENT 'Unique identifier for the music track',
+    `user_id` varchar(32) NOT NULL COMMENT 'ID of the user who created the music',
+    `task_id` varchar(32) NOT NULL COMMENT 'ID of the generation task from the AI service',
+    `creation_id` varchar(32) NOT NULL COMMENT 'Internal creation identifier',
     `music_title` varchar(30) DEFAULT NULL COMMENT 'Title of the music track',
     `cover` varchar(150) DEFAULT NULL COMMENT 'URL to the cover image',
     `audio_path` varchar(150) DEFAULT NULL COMMENT 'Path or URL to the audio file',
