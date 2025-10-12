@@ -122,3 +122,62 @@ description: TODO
 - The `serialVersionUID` is a unique identifier for the class, which helps in version control during serialization and deserialization.
 - It is a good practice to include `serialVersionUID` when implementing `Serializable` to avoid potential issues during deserialization if the class structure changes. 
 - `@Serial` annotation is used to indicate that the field is related to serialization, but it is not strictly necessary. It is mainly for documentation purposes.
+- This ensures that the entity class is properly mapped to the database table and can be serialized when needed.
+- The `serialVersionUID` is a unique identifier for the class, which helps in version control during serialization and deserialization.
+- It is a good practice to include `serialVersionUID` when implementing `Serializable` to avoid potential issues during deserialization if the class structure changes.
+- `@Serial` annotation is used to indicate that the field is related to serialization, but it is not strictly necessary. It is mainly for documentation purposes.
+
+
+### `@Configuration`, `@Bean` and `@Component` annotations in Spring Boot
+- `@Configuration` is used to indicate that a class contains bean definitions for the Spring application context.
+- `@Bean` is used to define a bean that will be managed by the Spring container.
+- `@Component` is a generic stereotype annotation that indicates that a class is a Spring-managed component.
+- Example usage:
+  ```java
+  @Configuration
+  public class AppConfig {
+
+      @Bean
+      public MyService myService() {
+          return new MyServiceImpl();
+      }
+  }
+  ```
+- This allows for easy configuration and management of beans in a Spring Boot application.
+- You can use `@Component` to annotate classes that should be automatically detected and registered as beans by Spring's component scanning.
+- Example usage of `@Component`:
+  ```java
+  @Component
+  public class MyComponent {
+      // component logic...
+  }
+  ```
+- This helps in reducing boilerplate code and promotes a cleaner architecture by separating configuration from business logic.
+
+#### Differences between `@Configuration`, `@Bean`, and `@Component`
+
+| Annotation       | Purpose                                          | Usage Context                                   |
+|------------------|--------------------------------------------------|-------------------------------------------------|
+| `@Configuration` | Indicates a class that contains bean definitions | Used on classes that define beans               |
+| `@Bean`          | Defines a bean that will be managed by Spring    | Used on methods within `@Configuration` classes |
+| `@Component`     | Marks a class as a Spring-managed component      | Used on classes to enable component scanning    |
+
+`@Component` 和 @`Configuration` 都用于将类声明为 Spring IoC 容器中的 Bean，但它们的使用场景有所不同。
+
+以下是选择使用哪一个的指导原则：
+
+1. 使用 `@Component`（或其特化注解如 `@Service`, `@Repository`, `@Controller`）：  
+   当你希望 Spring 自动扫描并注册你自己编写的类作为 Bean 时，使用此注解。
+   这适用于应用中的业务逻辑组件、数据访问组件或控制器。
+   你直接在需要被 Spring 管理的类上添加此注解。
+   简单来说： 如果这个类是你自己写的，并且你希望 Spring 为你创建和管理它的实例，就用 `@Component`。
+2. 使用 `@Configuration`：  
+   当你需要定义不属于你项目代码的 Bean（例如，来自第三方库的类）时，或者当 Bean 的创建过程比较复杂，需要特定逻辑时，使用此注解。
+   `@Configuration` 注解的类本身也是一个组件，但它的主要目的是作为 Bean 定义的来源。
+   在 `@Configuration` 类中，你会使用 `@Bean` 注解来修饰方法，这些方法负责创建和配置 Bean 实例。
+   简单来说： 如果你想将一个外部库的类或者需要复杂初始化的对像注册为 Bean，就在一个带有 `@Configuration` 的类中，创建一个返回该对象实例并用 `@Bean` 注解的方法。
+
+| Use Case                               | Annotation(s)                | Purpose                                                              |
+|----------------------------------------|------------------------------|----------------------------------------------------------------------|
+| For your own business components       | `@Component`                 | Marks a class for Spring to auto-scan and create an instance.        |
+| For 3rd-party or complex beans         | `@Configuration` and `@Bean` | Acts as a factory to define, create, and configure beans via methods.|

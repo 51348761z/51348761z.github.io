@@ -413,9 +413,19 @@ public class RedisUtils<V> {
 }
 ```
 
+`CollectionUtils.arrayToList(keys)` is a utility method from Spring Framework that converts an array to a `List`.
+
 > `@Resource` is used for dependency injection.  
 > It injects the `RedisTemplate<String, V>` bean defined in the `RedisConfig` class into the `RedisUtils` class.
 {: .prompt-info}
+
+#### RedisTemplate breakdown
+
+`RedisTemplate<String, V>` is a Spring Data Redis class that provides high-level abstractions for interacting with Redis. It is a generic class where `String` represents the type of the key and `V` represents the type of the value. The `RedisTemplate` class provides various methods to perform Redis operations, such as setting and getting values, working with hashes, lists, sets, and sorted sets.
+
+- `opsForValue()`: Provides operations for string values.
+- `opsForHash()`: Provides operations for hash values.
+- `opsForZSet()`: Provides operations for sorted set values.
 
 #### How the Utility Class Works
 
