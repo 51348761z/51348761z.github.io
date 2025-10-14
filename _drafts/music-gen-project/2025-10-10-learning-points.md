@@ -196,4 +196,106 @@ description: TODO
 | For your own business components       | `@Component`                 | Marks a class for Spring to auto-scan and create an instance.        |
 | For 3rd-party or complex beans         | `@Configuration` and `@Bean` | Acts as a factory to define, create, and configure beans via methods.|
 
-### `@RequestBody` and `@RequestParam` annotations
+---
+
+### `@Autowired` vs. `@Resource`
+
+`@Autowired` 和 `@Resource` 都是用来进行依赖注入的注解，但它们之间存在一些关键区别，主要体现在来源和默认的注入策略上。
+
+#### 核心区别
+
+1. **来源不同**:
+    - `@Autowired` 是 Spring 框架提供的注解。
+    - `@Resource` 是 Java 的标准规范 (JSR-250) 中定义的注解。
+
+2. **默认注入方式不同**:
+    - `@Autowired` 默认是**按类型 (byType)** 进行注入。
+    - `@Resource` 默认是**按名称 (byName)** 进行注入。如果按名称找不到，它会回退到按类型注入。
+
+#### 总结对比
+
+| 特性                   | `@Autowired` (Spring)                         | `@Resource` (Java 标准)                       |
+|:-----------------------|:----------------------------------------------|:----------------------------------------------|
+| **来源**               | Spring 框架                                   | Java JSR-250 规范                             |
+| **默认注入方式**       | **按类型 (byType)**                           | **按名称 (byName)**                           |
+| **名称匹配失败后**     | 无后备操作，直接报错（除非只有一个该类型的Bean） | **回退到按类型 (byType)** 注入                |
+| **如何解决多Bean歧义** | 使用 `@Qualifier("beanName")`                 | 使用 `name` 属性 `@Resource(name="beanName")` |
+
+#### 示例
+
+假设我们有两个 `MessageService` 的实现：`smsService` 和 `emailService`。
+
+```java
+public interface MessageService {
+    String getMessage();
+}
+
+@Component("smsService")
+public class SmsServiceImpl implements MessageService { /* ... */ }
+
+@Component("emailService")
+public class EmailServiceImpl implements MessageService { /* ... */ }
+```
+
+**使用 `@Autowired`:**
+
+```java
+@Autowired
+@Qualifier("smsService") // 必须使用 @Qualifier 来指定名称，否则会因找到多个同类型Bean而报错
+private MessageService messageService;
+```
+
+**使用 `@Resource`:**
+
+```java
+// 写法一：通过字段名匹配
+@Resource
+private MessageService smsService; // 字段名 "smsService" 与 Bean 名匹配，注入成功
+
+// 写法二：通过 name 属性指定
+@Resource(name = "emailService")
+private MessageService messageService; // 明确指定注入 "emailService"
+```
+
+在实际使用中，如果希望代码与 Spring 框架解耦，`@Resource` 是更好的选择。而在纯 Spring 项目中，`@Autowired`（特别是与构造函数注入结合使用时）更为常见。
+
+#### 为什么 `@Autowired` 推荐使用构造函数注入？
+
+将 `@Autowired` 与构造函数结合使用（即构造函数注入）被广泛推荐，因为它能带来更健壮、更可靠、更易于测试的代码。
+
+1. **保证依赖的不可变性 (Immutability)**
+   当使用构造函数注入时，你可以将依赖字段声明为 `final`。这意味着一旦对象被创建，它的依赖关系就不能再被更改。这使得你的组件更加稳定和线程安全。
+
+    ```java
+    @Service
+    public class MyService {
+        private final AnotherService anotherService; // 可以声明为 final
+
+        // 从 Spring 4.3 开始，如果类只有一个构造函数，@Autowired 可省略
+        public MyService(AnotherService anotherService) {
+            this.anotherService = anotherService;
+        }
+    }
+    ```
+
+2. **保证依赖的完整性 (Guaranteed Dependencies)**
+   构造函数注入确保了对象在被创建时，其所有必需的依赖都已准备就绪。如果 Spring 无法提供某个依赖，应用会在启动时就失败，这远比在运行时遇到 `NullPointerException` 要好。
+
+3. **提升代码的可测试性 (Improved Testability)**
+   在进行单元测试时，你不再需要 Spring 容器。你可以像创建普通 Java 对象一样，使用 `new` 关键字，并手动传入模拟（Mock）的依赖对象。
+
+    ```java
+    // 在单元测试中
+    AnotherService mockAnotherService = Mockito.mock(AnotherService.class);
+    MyService myService = new MyService(mockAnotherService); // 直接创建实例，非常简单
+    ```
+
+4. **避免循环依赖 (Avoids Circular Dependencies)**
+   当使用构造函数注入时，如果存在循环依赖（A 依赖 B，B 又依赖 A），Spring 在启动时会直接抛出异常，迫使你立即发现并修复这个设计问题。而字段注入可能会掩盖这个问题。
+
+  | 特性           | 构造函数注入 (推荐)  | Setter 注入          | 字段注入 (不推荐) |
+  |:---------------|:---------------------|:---------------------|:------------------|
+  | **依赖不可变** | ✅ (可使用 `final`)   | ❌                    | ❌                 |
+  | **依赖完整性** | ✅ (启动时保证)       | ❌                    | ❌                 |
+  | **可测试性**   | ✅ (无需 Spring 容器) | ⚠️ (需要调用 setter) | ❌ (需要反射)      |
+  | **循环依赖**   | ✅ (启动时报错)       | ❌ (可能掩盖问题)     | ❌ (可能掩盖问题)  |

@@ -7,11 +7,10 @@ mermaid: true
 description: "This article discusses the configuration of MySQL for the Music-Gen project."
 ---
 
-## Music-Gen Project: MySQL configuration
 
 This article discusses the configuration of MySQL for the Music-Gen project.
 
-### 1. Create Database and User Table
+### 1. User-related Table
 
 ```sql
 CREATE DATABASE music_gen_db;
@@ -31,7 +30,7 @@ CREATE TABLE `user_info` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=DYNAMIC COMMENT='User Information';
 ```
 
-### 2. SQL Clause Explanations
+Some SQL clause explanations are provided below.
 
 #### Why use `USING BTREE`?
 
@@ -51,7 +50,9 @@ This setting defines how MySQL stores row data on disk. `DYNAMIC` is the modern 
 - **Why it's used**: Instead of trying to cram the beginning of large text or blob data into the index page itself (like the older `COMPACT` format did), `DYNAMIC` stores the entire large column in separate "overflow pages." This keeps the primary index pages lean and fast, improving overall query performance because more index entries can fit into memory.
 - **Is it necessary?**: In modern MySQL (5.7+), `DYNAMIC` is the default. Specifying it is good practice for ensuring consistent behavior across different server configurations.
 
-### 3. Add Music Information Table
+## 2. Music-related Table
+
+### Music Information Table
 
 ```sql
 CREATE TABLE `tb_music_info` (
@@ -75,7 +76,39 @@ CREATE TABLE `tb_music_info` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=DYNAMIC COMMENT='Stores information about generated music tracks';
 ```
 
-### 4. Java Data Type Mappings
+### Music Generation Information Table
+
+```sql
+CREATE TABLE `tb_music_generation_info` (
+  `creation_id` varchar(32) NOT NULL COMMENT 'Unique identifier for the creation task',
+  `user_id` varchar(32) NOT NULL COMMENT 'ID of the user who initiated the task',
+  `prompt` varchar(500) NOT NULL COMMENT 'Prompt used for music generation',
+  `lyrics` varchar(1500) DEFAULT NULL COMMENT 'Lyrics provided for the music',
+  `model` varchar(32) NOT NULL COMMENT 'AI model used for generation',
+  `music_type` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Type of music (0: With vocals, 1: Instrumental)',
+  `generation_mode` tinyint(1) DEFAULT NULL COMMENT 'Generation mode (0: Simple, 1: Expert)',
+  `settings` varchar(500) DEFAULT NULL COMMENT 'Additional settings for the generation task (e.g., JSON format)',
+  `create_time` datetime DEFAULT NULL COMMENT 'Timestamp when the task was created',
+  PRIMARY KEY (`creation_id`) USING BTREE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=DYNAMIC COMMENT='Stores information about music generation tasks';
+```
+
+### Music Operation Table
+
+```sql
+CREATE TABLE `tb_music_operation_info` (
+  `action_id` int(32) NOT NULL AUTO_INCREMENT COMMENT 'Unique identifier for the action',
+  `music_id` varchar(32) NOT NULL COMMENT 'ID of the music being acted upon',
+  `music_owner_user_id` varchar(32) DEFAULT NULL COMMENT 'ID of the user who owns the music',
+  `user_id` varchar(32) NOT NULL COMMENT 'ID of the user performing the action',
+  `action_type` tinyint(1) DEFAULT NULL COMMENT 'Type of action (e.g., 1: Like)',
+  PRIMARY KEY (`action_id`) USING BTREE,
+  UNIQUE KEY `idx_key_user_music_id` (`music_id`,`user_id`) USING BTREE COMMENT 'Ensures a user can perform a specific action on a piece of music only once',
+  KEY `idx_user_id` (`user_id`) USING BTREE COMMENT 'Index for quick lookups of actions by user'
+) ENGINE=InnoDB AUTO_INCREMENT=105 DEFAULT CHARSET=utf8mb4 ROW_FORMAT=DYNAMIC COMMENT='Stores user operations on music, such as likes';
+```
+
+## 4. Java Data Type Mappings
 
 When mapping SQL data types to Java data types, consider the following recommendations for optimal compatibility and performance:
 
