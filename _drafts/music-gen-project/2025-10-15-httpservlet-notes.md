@@ -2,8 +2,8 @@
 title: Servlet Notes
 date: 2025-10-15 18:46:45 +0800
 description: "Notes on HttpServlet and related concepts."
-tags: [Java, Servlet]
-categories: [java, servlet]
+categories: [Java, Servlet]
+tags: [Java, Servlet, HttpServlet, HttpServletResponse, RandomAccessFile, HTTP Range]
 ---
 
 ## 什么是 Servlet？

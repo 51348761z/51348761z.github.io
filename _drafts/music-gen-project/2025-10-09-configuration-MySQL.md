@@ -71,6 +71,7 @@ CREATE TABLE `tb_music_info` (
     `create_time` datetime DEFAULT NULL COMMENT 'Timestamp when the music record was created',
     `music_status` tinyint(1) DEFAULT '0' COMMENT 'Generation status (0: Generating, 1: Generation complete)',
     `music_type` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Type of music (0: With vocals, 1: Instrumental)',
+    `version` bigint(20) DEFAULT '0' COMMENT 'Version number for optimistic locking',
     PRIMARY KEY (`music_id`) USING BTREE,
     UNIQUE KEY `uk_task_id` (`task_id`) USING BTREE COMMENT 'Ensure task ID from the AI service is unique'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=DYNAMIC COMMENT='Stores information about generated music tracks';
@@ -120,3 +121,70 @@ When mapping SQL data types to Java data types, consider the following recommend
 | **BINARY(16)**    | `java.util.UUID`               | Type-safe, semantically clear, and well-supported by frameworks.                                  |      |
 | **VARCHAR**       | `String`                       | Standard string mapping.                                                                          |      |
 | **DATETIME**      | `java.time.LocalDateTime`      | The standard way to handle date and time in modern Java.                                          |      |
+
+## 5. Product-related tables
+
+### Product Information Table
+
+```sql
+CREATE TABLE `tb_product_info`
+(
+    `product_id`   BIGINT(20)     NOT NULL AUTO_INCREMENT COMMENT 'Product ID',
+    `product_name` VARCHAR(100)   NOT NULL COMMENT 'Product Name/Title',
+    `description`  VARCHAR(255) DEFAULT NULL COMMENT 'Product Description',
+    `price`        DECIMAL(10, 2) NOT NULL COMMENT 'Product Price',
+    `cover`        VARCHAR(150) DEFAULT NULL COMMENT 'Product Cover Image URL',
+    `create_at`    DATETIME     DEFAULT NULL COMMENT 'Creation Timestamp',
+    `category`     VARCHAR(50)  DEFAULT NULL COMMENT 'Product Category',
+    `status`       VARCHAR(20)  DEFAULT 'DRAFT' COMMENT 'Product Status',
+    `credits`      INT(11)      DEFAULT 0 COMMENT 'Credits required to redeem the product',
+    `sort_order`   INT(11)      DEFAULT 0 COMMENT 'Sort Order for display purposes',
+    PRIMARY KEY (`product_id`) USING BTREE
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  ROW_FORMAT = DYNAMIC COMMENT = 'Product Information Table';
+```
+
+### Order Information Table
+
+```sql
+create table `tb_order_info`
+(
+    `order_id`         bigint(20) not null auto_increment comment 'Order ID',
+    `user_id`          varchar(32)    default null comment 'User ID',
+    `product_id`       bigint(20)     default null comment 'Product ID',
+    `product_name`     varchar(100)   default null comment 'Product Name',
+    `total_amount`     decimal(10, 2) default null comment 'Total Amount',
+    `channel_order_id` varchar(50)    default null comment 'Channel Order ID',
+    `status`           varchar(20)    default 'PENDING' comment 'Order Status',
+    `create_time`      datetime       default null comment 'Order Creation Time',
+    `payment_time`     datetime       default null comment 'Payment Time',
+    `credits`          int(11)        default null comment 'Credits used for the order',
+    `payment_info`     varchar(255)   default null comment 'Payment Information',
+    `payment_method`   varchar(50)    default null comment 'Payment Method',
+    primary key (`order_id`) using btree,
+    key `idx_user_id` (`user_id`) using btree comment 'Index for quick lookups of orders by user',
+    key `idx_product_id` (`product_id`) using btree comment 'Index for quick lookups of orders by product',
+    key `idx_payment_method` (`payment_method`) using btree comment 'Index for quick lookups of orders by payment method',
+    key `idx_payment_time` (`payment_time`) using btree comment 'Index for quick lookups of orders by payment time'
+) engine = InnoDB
+  default charset = utf8mb4
+  row_format = DYNAMIC comment ='Order Information Table';
+```
+
+### Payment Code Information Table
+
+```sql
+create table `tb_payment_code_info`
+(
+    `payment_code` varchar(8)     NOT NULL COMMENT 'Payment Code',
+    `user_id`      varchar(32)    NOT NULL COMMENT 'User ID associated with the payment code',
+    `amount`       decimal(10, 2) NOT NULL COMMENT 'Amount associated with the payment code',
+    `status`       varchar(20) DEFAULT 'Unused' COMMENT 'Status of the payment code (0: Unused, 1: Used)',
+    `create_time`  datetime    default null comment 'Creation Time',
+    `used_time`    datetime    default null comment 'Used Time',
+    primary key (`payment_code`) using btree
+) engine = InnoDB
+  default charset = utf8mb4
+  row_format = DYNAMIC comment = 'Payment Code Information Table';
+```
